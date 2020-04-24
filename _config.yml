@@ -6,4 +6,4 @@ kramdown:
   input: GFM
   syntax_highlighter_opts:
     block:
-      ine_numbers: true
+      line_numbers: true
