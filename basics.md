@@ -10,7 +10,7 @@
 vehicle/simvehicle.cc（ソースコードディレクトリのvehicleフォルダに入ってるsimvehicle.ccというファイルを指す）の1759行目周辺に，コード\ref{show_dr_b}のような記述がある．
 `case convoi_t::DRIVING:`という文字列をエディタで検索すればすぐに見つけることができるだろう．この箇所は図\ref{driving_status}のように車両のステータスを表示する処理を記述している．コード\ref{show_dr_b}の5行目に`go home`という文字列が見えるように，「回送」などといった状態表示はここで定義されているのである．
 
-```C++:今回コードを編集する箇所
+```c++
 case convoi_t::DRIVING:
 if(  state>=1  ) {
   grund_t const* const gr = welt->lookup(cnv->get_route()->back());
