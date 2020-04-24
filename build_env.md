@@ -44,7 +44,7 @@ yes | pacman -Su
 
 つづいて，以下のコマンドをMSYS2で実行し，諸々のツールをインストールする．
 ```sh
-pacman -S git make mingw-w64-i686-toolchain mingw-w64-i686-zlib mingw-w64-i686-bzip2 mingw-w64-i686-libpng
+pacman -S git make mingw-w64-i686-toolchain mingw-w64-i686-zlib mingw-w64-i686-bzip2 mingw-w64-i686-libpng mingw-w64-i686-zstd
 ```
 
 インストールするパッケージの選択を求められるので，何も入力せずEnterを押す．つまり，全てのパッケージを導入する．
@@ -75,8 +75,9 @@ STATIC = 1
 WITH_REVISION = 8550
 WIN32_CONSOLE = 1
 MULTI_THREAD = 1
-USE_FREETYPE = 0
-USE_UPNP = 0
+USE_FREETYPE = 1
+USE_UPNP = 1
+USE_ZSTD = 1
 MAKEOBJ_PROGDIR = $(shell pwd)
 NETTOOL_PROGDIR = $(shell pwd)
 PROGDIR  = $(shell pwd)
@@ -166,15 +167,18 @@ gdb /e/sim_test/sim.exe
 ## windows以外の環境でのコンパイル
 MacやLinuxでの環境構築はWindowsよりも簡単である．
 ### Ubuntuでのコンパイル
-先の節で説明したように，予めGitHubで本家のリポジトリをForkしておく．次に，config.defaultを適当な場所に用意する．このファイルは手打ちしてもよいし，simutransソースコードに含まれているconfig.templateを利用してもよい．ここで作成したconfig.defaultはあとでスクリプトで適切な位置にコピーする．
+先の節で説明したように，予めGitHubで本家のリポジトリをForkしておく．次に，config.defaultを適当な場所に用意する．このファイルは手打ちしてもよいし，simutransソースコードに含まれているconfig.templateを利用してもよい．ここで作成したconfig.defaultはあとでスクリプトで適切な位置にコピーする．`WITH_REVISION`の値はコンパイルするソースのリビジョン番号に置き換える．
 ```
 BACKEND = sdl2
 COLOUR_DEPTH = 16
 OSTYPE = linux
-DEBUG = 3
+DEBUG = 1
 OPTIMISE = 1
 WITH_REVISION = 8550
 MULTI_THREAD = 1
+USE_FREETYPE = 1
+USE_UPNP = 1
+USE_ZSTD = 1
 MAKEOBJ_PROGDIR = $(shell pwd)
 NETTOOL_PROGDIR = $(shell pwd)
 PROGDIR  = $(shell pwd)
@@ -184,11 +188,16 @@ PROGDIR  = $(shell pwd)
 
 ```sh
 sudo apt install make gcc gdb git zlib1g-dev libbz2-dev libpng-dev libsdl2-dev libminiupnpc-dev libfreetype6
+wget https://github.com/facebook/zstd/archive/v1.4.4.zip
+unzip v1.4.4.zip
+cd zstd-1.4.4
+make -j4
+sudo make install
 cd ~/
 git clone https://github.com/himeshi/simutrans.git
 cd ~/simutrans
 cp $(cd $(dirname $0);pwd)/config.default ~/simutrans
-make -j2
+make -j4
 ```
 
 例によって4行目の「`himeshi`」の部分は各自のgithubアカウントに置き換えてほしい．
@@ -209,19 +218,23 @@ chmod u+x setup.sh
 
 Homebrewのインストールが終わったら，ライブラリをインストールする．引き続き，ターミナル画面で以下のコマンドを入力する．
 ```sh
-brew install sdl2 libpng miniupnpc freetype
+brew install sdl2 libpng miniupnpc freetype zstd
 ```
 
-続いて，config.defaultを作成する．適当なエディタを開き，以下のテキストの通りにする．このファイルの作成は手打ちで行ってもよいし，simutransソースコードにあるconfig.templateを利用してもよい．「config.default」という名前でこのファイルをデスクトップに保存する．
+続いて，config.defaultを作成する．適当なエディタを開き，以下のテキストの通りにする．このファイルの作成は手打ちで行ってもよいし，simutransソースコードにあるconfig.templateを利用してもよい．「config.default」という名前でこのファイルをデスクトップに保存する．`WITH_REVISION`の値はコンパイルするソースのリビジョン番号に置き換える．
 
 ```
 BACKEND = sdl2
 COLOUR_DEPTH = 16
 OSTYPE = mac
-DEBUG = 3
+DEBUG = 1
 OPTIMISE = 1
 WITH_REVISION = 8550
 MULTI_THREAD = 1
+AV_FOUNDATION = 1
+USE_FREETYPE = 1
+USE_UPNP = 1
+USE_ZSTD = 1
 MAKEOBJ_PROGDIR = $(shell pwd)
 NETTOOL_PROGDIR = $(shell pwd)
 PROGDIR  = $(shell pwd)
