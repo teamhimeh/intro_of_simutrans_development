@@ -232,7 +232,7 @@ PROGDIR  = $(shell pwd)
 ```sh
 cd ~/
 git clone https://github.com/himeshi/simutrans.git
-cp ~/Desktop/config.default /simutrans
+cp ~/Desktop/config.default ~/simutrans
 cd ~/simutrans
 make -j4
 ```
