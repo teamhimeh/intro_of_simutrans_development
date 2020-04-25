@@ -117,54 +117,63 @@ bool update_city_street(koord pos)
 以上で「一定制限速度以上の道路は市道化しない」改造は達成されたように見える．実際，私的な範囲で使う分にはあまり問題はない．しかし，本家統合などが目的の場合は，本節の冒頭で述べた理由によりパラメータ`max_cityroad_speed`をセーブデータ内に保存する必要がある．そこで，次節ではセーブデータの読み書きを行う．
 
 ### セーブデータの読み書き
-セーブデータの読み書きは`settings_t::rdwr()`で行う．なお，`grund_t`や`weg_t`や`vehicle_t`などといったあらゆるクラスに`rdwr()`関数は用意されており，そこでデータの読み出し・保存を行うことになっている．ロード・セーブで別々の関数が用意されているのではなく，ロード時・セーブ時ともに`rdwr()`関数が呼ばれることに注意されたい．ここで，`settings_t`の`rdwr()`の一部を覗いてみよう．
 
-下のコードはdataobj/settings.ccの`settings_t::rdwr()`の一部であり，`settings_t`の`bonus_basefactor`という変数の値を読み書きしている．
-```c++
-if(  file->get_version()>=111002  ) {
-  file->rdwr_long( bonus_basefactor );
-}
-else if(  file->is_loading()  ) {
-  // 古いバージョンなので読み出しせず125という値を代入する．
-  bonus_basefactor = 125;
-}
-```
-1行目でバージョンチェックをしている．この場合，バージョンが111002以上であれば読み書き，それ以前であれば読み書きせず値を代入している．2行目にある`rdwr_long()`は32bitのパラメータを読み書きする場合に使い，64bitの場合は`rdwr_longlong()`，16bitの場合は`rdwr_short()`，8bitの場合は`rdwr_byte()`を使う．bool値の場合は`rdwr_bool()`を使う．ここで引数に渡しているのは参照であって（`loadsave_t`のヘッダファイルを読むとわかる．），読み出しの際は引数として渡した変数に値が格納され，書き出しの際は引数として渡した値がデータに書き込まれる．simutransではセーブデータ内に変数がindexナシに順番に格納されるので，ここで **読み書きする順番に誤りがあると処理に支障をきたす** ことに注意されたい．例えば，古いデータを読むときに誤って新しいバージョンでしか定義されていないパラメータを読み出そうとしたとする．このとき，「パラメータが見つからないからエラー」ではなく「読み出す順番がズレて処理続行不能」となるのである．
+Simutransでは，機能追加に伴いセーブデータの構造が変化していく．古い形式のデータも正しく読めるようにするために，セーブデータにはバージョンが定義されている．
 
-ところで，セーブデータのバージョンはどこで定義されているのだろうか．その答えはsimversion.hにある．下のコードはsimversion.h 13行目からのの抜粋である．
+セーブデータのバージョンはsimversion.hで定義されている．下のコードはsimversion.h 13行目からのの抜粋である．
 
 ```c++
-#define SIM_VERSION_MAJOR 120
-#define SIM_VERSION_MINOR   4
+#define SIM_VERSION_MAJOR 121
+#define SIM_VERSION_MINOR   0
 #define SIM_VERSION_PATCH   1
 #define SIM_VERSION_BUILD SIM_BUILD_NIGHTLY
 
 // Beware: SAVEGAME minor is often ahead of version minor when there were patches.
 // ==> These have no direct connection at all!
-#define SIM_SAVE_MINOR      7
-#define SIM_SERVER_MINOR    7
+#define SIM_SAVE_MINOR      0
+#define SIM_SERVER_MINOR    0
 // NOTE: increment before next release to enable save/load of new features
 
 #define MAKEOBJ_VERSION "60.1"
 ```
 
-`rdwr()`で扱うデータのバージョン番号は **バージョン番号 = SIM_VERSION_MAJOR×1000 + SIM_SAVE_MINOR** で計算される．
+セーブデータのバージョン管理で重要なのは`SIM_VERION_MAJOR`と`SIM_SAVE_MINOR`の2つの値である．先ほどのコードの場合，`SIM_VERION_MAJOR`は121，`SIM_SAVE_MINOR`は0である．ちなみに，リリース時にユーザーに案内される「120.4.1」といったリリース番号は，`SIM_VERION_MAJOR`，`SIM_VERION_MINOR`，および`SIM_VERION_PATCH`が使われている．`SIM_SAVE_MINOR`はユーザーに案内される番号には使われていない．
 
-各種バージョン番号が上のコードのようになっているならば，その状態でデータを保存するとバージョン番号は「120*1000+7=120007」と計算される．読み書きするパラメータを新しく増やすときは`SIM_SAVE_MINOR`の値を増やした上で`rdwr()`で適切にバージョンによる場合分けをしなければならない．
+`SIM_VERION_MAJOR`は大きなバージョンアップの際に本家開発チームによって引き上げられる番号である．それに対し，`SIM_SAVE_MINOR`はセーブデータの構造に何かしらの変化が加えられたときに引き上げられる番号である．読み書きするパラメータを新しく増やすときは`SIM_SAVE_MINOR`の値を増やした上で，読み書きするときにバージョンによる場合分けをしなければならない．
 
-それでは，`max_cityroad_speed`のデータを読み書きしよう．まずは，simversion.hの`SIM_SAVE_MINOR`の値を増やす．お手元のコードの`SIM_SAVE_MINOR`が7ではなかった場合はお手元の`SIM_SAVE_MINOR`の値を1増やせばよい．
+セーブデータの読み書きは`settings_t::rdwr()`で行う．なお，`grund_t`や`weg_t`や`vehicle_t`などといったあらゆるクラスに`rdwr()`関数は用意されており，そこでデータの読み出し・保存を行うことになっている．ロード・セーブで別々の関数が用意されているのではなく，ロード時・セーブ時ともに`rdwr()`関数が呼ばれることに注意されたい．ここで，`settings_t`の`rdwr()`の一部を覗いてみよう．
+
+下のコードはdataobj/settings.ccの`settings_t::rdwr()`の一部であり，`settings_t`の`bonus_basefactor`という変数の値を読み書きしている．
+```c++
+if(  file->is_version_atleast(111, 2)  ) {
+	file->rdwr_long( bonus_basefactor );
+}
+else if(  file->is_loading()  ) {
+	// 古いバージョンなので読み出しせず125という値を代入する．
+	bonus_basefactor = 125;
+}
+```
+
+1行目でバージョンチェックをしている．`is_version_atleast()`に渡されている引数のうち，「111」は`SIM_VERION_MAJOR`，「2」は`SIM_SAVE_MINOR`である．
+すなはち，セーブデータのバージョンがこれより新しければデータの読み書きを行い，それ以前のデータであれば読み書きをせず，125という値を代入している．2行目にある`rdwr_long()`は32bitのパラメータを読み書きする場合に使い，64bitの場合は`rdwr_longlong()`，16bitの場合は`rdwr_short()`，8bitの場合は`rdwr_byte()`を使う．bool値の場合は`rdwr_bool()`を使う．ここで引数に渡しているのは参照であって（`loadsave_t`のヘッダファイルを読むとわかる．），読み出しの際は引数として渡した変数に値が格納され，書き出しの際は引数として渡した値がデータに書き込まれる．simutransではセーブデータ内に変数がindexナシに順番に格納されるので，ここで **読み書きする順番に誤りがあると処理に支障をきたす** ことに注意されたい．例えば，古いデータを読むときに誤って新しいバージョンでしか定義されていないパラメータを読み出そうとしたとする．このとき，「パラメータが見つからないからエラー」ではなく「読み出す順番がズレて処理続行不能」となるのである．
+
+
+
+それでは，`max_cityroad_speed`のデータを読み書きしよう．まずは，simversion.hの`SIM_SAVE_MINOR`の値を増やす．お手元のコードの`SIM_SAVE_MINOR`が0ではなかった場合はお手元の`SIM_SAVE_MINOR`の値を1増やせばよい．
 
 ```c++
-// もともとの値が7だったので1増やして8にする
+// もともとの値が0だったので1増やして1にする
 // SIM_SERVER_MINORも増やす
-#define SIM_SAVE_MINOR      8
-#define SIM_SERVER_MINOR    8
+#define SIM_SAVE_MINOR      1
+#define SIM_SERVER_MINOR    1
 ```
 
 つづいて，dataobj/settings.ccの`settings_t::rdwr()`に`max_cityroad_speed`の読み書き処理を追記する．`settings_t`オブジェクトの初期化時点で`max_cityroad_speed`は初期化されているので，バージョン番号が十分新しい場合にのみ読み書き処理をすれば十分である．適当に`settings_t::rdwr()`の末尾にでも追記しておけばよい．
 
 ```c++
-if(  file->get_version() >= 120008  ) {
+// SIM_VERSION_MAJORは121 
+// SIM_SAVE_MINORは先ほど1に増やした
+if(  file->is_version_atleast(121, 1)  ) {
 	file->rdwr_short(max_cityroad_speed);
 }
 ```
@@ -172,9 +181,9 @@ if(  file->get_version() >= 120008  ) {
 ### 高度な設定ウィンドウの整備
 `max_cityroad_speed`の初期化はした．simuconfのパースもした．パラメータのファイル保存もした．市道化アルゴリズムは`max_cityroad_speed`を参照するようになった．やり残したことは，ユーザーが「高度な設定」ウィンドウから`max_cityroad_speed`を編集できるようにすることである．これをやらないと，ユーザーは一度ゲームを開始したら二度とそのパラメータを変更できないことになってしまう．
 
-<img src="images/市道化防止/4.png" title="高度な設定 の 経済タブ">
+<img src="images/市道化防止/4.png" title="高度な設定 の 経済タブ" style="zoom:0.5;">
 
-高度な設定ウィンドウは図\ref{高度な設定ウィンドウ}のように，大きな外枠ウィンドウがあってその中に6つのタブが並んでいる．`max_cityroad_speed`は「経済」タブの中に配置するのが妥当であろう．というわけで，経済タブの一番下に配置することにしよう．
+高度な設定ウィンドウは上図のように，大きな外枠ウィンドウがあってその中に6つのタブが並んでいる．`max_cityroad_speed`は「経済」タブの中に配置するのが妥当であろう．というわけで，経済タブの一番下に配置することにしよう．
 
 次に，ソースコードフォルダのguiディレクトリを眺めてみると，settings\_frame.h・.ccとsettings\_stats.h・.ccを見つけることができる．settings\_frame.hおよびsettings\_frame.ccは高度な設定ウィンドウの外枠を定義しているファイルである．settings\_stats.hおよびsettings\_stats.ccは各パラメータの設定部品を定義しており，我々が変更を加えるのはこちらである．このファイルはマクロを使って書かれており，コードを文法的にまじめに解読する意味はない．gui/settings\_stats.ccにある，`settings_economy_stats_t::init`と`settings_economy_stats_t::read`の末尾にそれぞれ次のように追記しよう．
 
