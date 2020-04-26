@@ -191,13 +191,13 @@ if(  file->is_version_atleast(121, 1)  ) {
 void settings_economy_stats_t::read(settings_t* const sets)
 {
   // （この間たくさんの初期化コード）
-  READ_NUM_VALUE( sets->max_cityroad_speed );
+  READ_NUM_VALUE( sets->max_cityroad_speed() );
 }
 
 void settings_costs_stats_t::init(settings_t const* const sets) {
   // （この間たくさんの初期化コード）
   // 引数は 表示名, 変数, min, max, 補完, wrap (通常false)
-  INIT_NUM("max_cityroad_speed", sets->get_max_cityroad_speed, 0, 65535, gui_numberinput_t::AUTOLINEAR, false );
+  INIT_NUM("max_cityroad_speed", sets->get_max_cityroad_speed(), 0, 65535, gui_numberinput_t::AUTOLINEAR, false );
 
   clear_dirty();
   height = ypos;
