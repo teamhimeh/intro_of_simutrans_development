@@ -345,6 +345,8 @@ public:
 #endif
 ```
 
+**ここから下は現行バージョンで動作しないので，書き直し中です**
+
 つづいて，gui/signal\_spacing.ccを参考にしてgui/road\_config.ccを書く．実装する関数はコンストラクタと`action_triggered()`の2つである．
 
 ```c++
@@ -395,6 +397,8 @@ bool road_config_frame_t::action_triggered( gui_action_creator_t *comp, value_t)
 ```
 
 コード\ref{road_conf_cc}では`strasse_t`のenumを使うため5行目でstrasse.hをincludeしている．9行目で変数の初期化を行い，20〜25行目でbuttonの配置をしている．30行目から`action_triggered`の記述が始まり，ボタンの状態を反転した上で`street_flag`のビット演算をしている．41行目でそれを呼び出し元ツールに戻している．
+
+**編集中区間ここまで**
 
 `road_config_frame_t`クラスが書き上がったので，`tool_build_way_t`から呼び出してあげよう．ウィンドウを閉じるために必要な`exit()`関数は`tool_build_way_t`に実装されていない（オーバーライドされていない）ので，信号・標識と同じようにpublic属性でヘッダファイル（simtool.h）で宣言する．（下のコード）
 ```c++
