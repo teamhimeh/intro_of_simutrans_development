@@ -2,24 +2,27 @@
 
 ## 改造2: 市道化の可否を道路1タイルずつ設定する
 
-２つめのアプローチは，市道化の可否を道路1タイルずつ指定する方式である．道路建設ツールをctrlキーを押しながらクリックすると，図\ref{OTRP_road_config}のように市道化防止ボタンが登場する．市道化防止ボタンが押された状態でその道路を建設すると，その道路についてのみ市道化が禁止される．
+２つめのアプローチは，市道化の可否を道路1タイルずつ指定する方式である．道路建設ツールをctrlキーを押しながらクリックすると，下図のように市道化防止ボタンが登場する．市道化防止ボタンが押された状態でその道路を建設すると，その道路についてのみ市道化が禁止される．
+
+<img src="images/市道化防止/7.png" title="完成した市道化可否コントロールウィンドウ" style="zoom:0.5;">
 
 先ほどの改造とは全く別の改造になるので，gitで新しいブランチを用意しよう．コマンドラインで下のようにすれば，「cityroad\_button」という名前のブランチを作成し，同時にそのブランチに切り替えることができる．cityroad\_buttonブランチはspeed\_thresholdブランチからではなく，masterブランチから派生させることに注意されたい．
 
-```c++
+```
 git checkout master
 git checkout -b cityroad_button
 ```
 
 まず，市道化の可否はどうすればいいのだろう．道路オブジェクトに市道化可否フラグを持たせて，`stadt_t::update_city_street()`の中で対象道路に市道化防止フラグが立っているか検査してから市道化処理を行えば良さそうである．道路に変数をもたせたので，それをセーブデータに保存することも必要だ．変数をセーブデータから出し入れするには`rwdr()`関数を使えばよいのであった．あとは，GUIから市道化可否フラグを設定できればよい．フラグは道路建設ツールを使って設定すると良いだろう．したがって，道路建設ツールがユーザーに対して設定ウィンドウを提供する．ユーザーが実際に道路を建設するときに，ツールが一緒に道路オブジェクトにフラグを設定すればよい．
 
-ここまでで基本的な方針はついた．やることはもう分かっているので，あとは編集したいクラスが書かれているファイルを見つけ，編集すべき関数を見つけ，内容を理解し，コードを書き換えればよい．道路を建設するツールは何というクラスなのだろうか．クラスや関数の探し方は既に解説したとおりである．動作主体を考え，その単語で横断検索をかけ，あるいはディレクトリ構造からたどっていく．さあ，コードの海へ漕ぎ出そう．\\
-\dotfill
+ここまでで基本的な方針はついた．やることはもう分かっているので，あとは編集したいクラスが書かれているファイルを見つけ，編集すべき関数を見つけ，内容を理解し，コードを書き換えればよい．道路を建設するツールは何というクラスなのだろうか．クラスや関数の探し方は既に解説したとおりである．動作主体を考え，その単語で横断検索をかけ，あるいはディレクトリ構造からたどっていく．さあ，コードの海へ漕ぎ出そう．
 
-独力での実装の旅を続けていると，このトピックではいくつかの難所に遭遇するはずである．このあとの節では，それを一つ一つ解説していこう．
+----
 
-### street flagとrdwrの整備}
-本改造では，市道化をする時にその道路が市道化可能か判断をする．このため，道路オブジェクトに市道化可否を表すフラグ変数が必要である．まずは，道路オブジェクトに市道化可否のフラグを設け，rdwrするところまで進もう．道路オブジェクトを定義するクラスはboden/wege/strasse.hで定義されている`strasse_t`（strasseはドイツ語で道路の意味である．）である．このクラスに変数`street_flags`を定義し，そのgetter・setter関数を定義する．変数と関数をコード\ref{edit_strasse_h}のように追加する．
+独力での実装の旅を続けていると，このトピックではいくつかの難所に遭遇するはずである．これ以降はそれを一つ一つ解説していく．
+
+### street flagとrdwrの整備
+本改造では，市道化をする時にその道路が市道化可能か判断をする．このため，道路オブジェクトに市道化可否を表すフラグ変数が必要である．まずは，道路オブジェクトに市道化可否のフラグを設け，rdwrするところまで進もう．道路オブジェクトを定義するクラスはboden/wege/strasse.hで定義されている`strasse_t`（strasseはドイツ語で道路の意味である．）である．このクラスに変数`street_flags`を定義し，そのgetter・setter関数を定義する．変数と関数を下のコードのように追加する．
 ```c++
 class strasse_t : public weg_t
 {
@@ -41,13 +44,13 @@ void set_avoid_cityroad(bool s) { s ? street_flags |= AVOID_CITYROAD : street_fl
 ```
 bool変数で市道化の可否を定義してもよかったのだが，あえてuint8変数として定義した．このようにすれば，後でフラグを追加するときにenumとgetter・setterの追加で済む．このテクニックはsimutransでは多数箇所で用いられている．例えば，`roadsign_desc_t`（descriptor/roadsign\_desc.h）を見ると，同じように各フラグがuint8変数1つにまとめられていることがわかる．
 
-つづいて，boden/wege/strasse.ccを改変しよう．strasse.ccでは先ほど`strasse_t`に定義した`street_flags`を初期化し，セーブデータに読み書きできるようにする．セーブデータの読み書きは`rdwr()`関数に書けば良いのであった．`strasse_t`のコンストラクタは引数ナシのものとセーブファイルオブジェクトをとるものがあることに注意しよう．セーブファイルオブジェクトを引数に取るコンストラクタで`rdwr()`が呼ばれていることがわかる．コード\ref{strasse_cc}の5行目および14〜19行目が，boden/wege/strasse.ccにおける追記内容である．
+つづいて，boden/wege/strasse.ccを改変しよう．strasse.ccでは先ほど`strasse_t`に定義した`street_flags`を初期化し，セーブデータに読み書きできるようにする．セーブデータの読み書きは`rdwr()`関数に書けば良いのであった．`strasse_t`のコンストラクタは引数ナシのものとセーブファイルオブジェクトをとるものがあることに注意しよう．セーブファイルオブジェクトを引数に取るコンストラクタで`rdwr()`が呼ばれていることがわかる．下のコードの5行目および14〜19行目が，boden/wege/strasse.ccにおける追記内容である．
 
 ```c++
 strasse_t::strasse_t() : weg_t()
 {
   set_gehweg(false);
-	set_desc(default_strasse);
+  set_desc(default_strasse);
   street_flags = 0;
 }
 
@@ -58,7 +61,7 @@ void strasse_t::rdwr(loadsave_t *file)
 	weg_t::rdwr(file);
   
   // street_flagsの読み書き
-  if(  file->get_version()>=120007  ) {
+  if(  file->is_version_atleast(121, 1)  ) {
     file->rdwr_byte(street_flags);
   } else {
     street_flags = 0;
@@ -66,7 +69,8 @@ void strasse_t::rdwr(loadsave_t *file)
 }
 ```
 
-`street_flags`を設定したので，市道化処理を行う`update_city_street()`も`street_flags`を参照するようにする．simcity.ccにある`update_city_street()`をコード\ref{check_avoid_cityroad}のように変更する．8行目にあるif文の条件式の中に市道化可否フラグの項が追加されたことがわかるだろう．`street_flags`は`strasse_t`で定義しているので，コード\ref{check_avoid_cityroad}の6行目では道路オブジェクトを`weg_t`ではなく`strasse_t`で扱っていることに注意しよう．
+`street_flags`を設定したので，市道化処理を行う`update_city_street()`も`street_flags`を参照するようにする．simcity.ccにある`update_city_street()`を下のコードのように変更する．8行目にあるif文の条件式の中に市道化可否フラグの項が追加されたことがわかるだろう．`street_flags`は`strasse_t`で定義しているので，下のコードの6行目では道路オブジェクトを`weg_t`ではなく`strasse_t`で扱っていることに注意しよう．
+
 ```c++
 bool update_city_street(koord pos)
 {
@@ -81,9 +85,10 @@ bool update_city_street(koord pos)
 （以下省略）
 ```
 
-### 市道化可否を道路建設に反映}
-道路オブジェクトに市道化可否フラグを設け，`update_city_street()`でそれを参照するようにした．あとは，ユーザーが市道化の可否をGUIで設定し，それが道路建設時に適切に反映されるようにすればよい．まずは，ユーザーが設定した市道化可否を道路建設に反映するようにしよう．ここでもやることは同じ．クラスを特定し，関数を特定し，内容を理解し，改変を加える．まずは自分でコードを読み，「道路建設がどのようにして行われているのか」を把握することにチャンレジしよう．\\
-\dotfill
+### 市道化可否を道路建設に反映
+道路オブジェクトに市道化可否フラグを設け，`update_city_street()`でそれを参照するようにした．あとは，ユーザーが市道化の可否をGUIで設定し，それが道路建設時に適切に反映されるようにすればよい．まずは，ユーザーが設定した市道化可否を道路建設に反映するようにしよう．ここでもやることは同じ．クラスを特定し，関数を特定し，内容を理解し，改変を加える．まずは自分でコードを読み，「道路建設がどのようにして行われているのか」を把握することにチャンレジしよう．
+
+-----
 
 何度か述べたとおり，Simutransで道路を建設しているのは「道路建設ツール」である．ソースコードフォルダを眺めていると，simtool.hというファイルが見当たる．このヘッダファイルを開いて，眺めてみよう．`tool_remover_t`や`tool_raise_t`といったクラスの宣言が見られる．simtool.hはSimutransにおける種々のツールクラスを定義したファイルである．
 
@@ -107,9 +112,9 @@ const char *tool_build_way_t::do_work( player_t *player, const koord3d &start, c
 }
 ```
 
-コード\ref{do_work}の3行目で`way_builder_t`型の変数を生成している．その後建設ルートを計算し，ルートが有効であれば3行目で生成した`way_builder_t`型変数の`build()`を呼び出している．ここから，道路建設の実体は`way_builder_t`クラスにあることがわかった．そこで，`way_builder_t`クラスを調査しよう．`way_builder_t`のヘッダファイルはbauer/wegbauer.hである．（bauerはドイツ語でbuilderという意味であるからファイルの場所を推定するのは容易であろう．）
+上のコードの3行目で`way_builder_t`型の変数を生成している．その後建設ルートを計算し，ルートが有効であれば3行目で生成した`way_builder_t`型変数の`build()`を呼び出している．ここから，道路建設の実体は`way_builder_t`クラスにあることがわかった．そこで，`way_builder_t`クラスを調査しよう．`way_builder_t`のヘッダファイルはbauer/wegbauer.hである．（bauerはドイツ語でbuilderという意味であるからファイルの場所を推定するのは容易であろう．）
 
-bauer/wegbauer.hを見ると，`way_builder_t`は多数の変数と関数を持った大きなクラスであることがわかる．このままヘッダファイルを眺めていてもナニをすればよくわからないが，とりあえずコード\ref{do_work}の7行目で呼ばれた関数`build()`は発見することができる．我々はこの処理の中身が知りたいのであるから，bauer/wegbauer.ccに書かれた`way_builder_t::build()`を読むことにしよう．この関数を読むとその中ほどにコード\ref{way_builder_build}ような記述がある．
+bauer/wegbauer.hを見ると，`way_builder_t`は多数の変数と関数を持った大きなクラスであることがわかる．このままヘッダファイルを眺めていてもナニをすればよくわからないが，とりあえず上のコードの7行目で呼ばれた関数`build()`は発見することができる．我々はこの処理の中身が知りたいのであるから，bauer/wegbauer.ccに書かれた`way_builder_t::build()`を読むことにしよう．この関数を読むとその中ほどに下のコードような記述がある．
 
 ```c++
 switch(bautyp&bautyp_mask) {
@@ -138,16 +143,17 @@ switch(bautyp&bautyp_mask) {
 }
 ```
 
-`way_builder_t`オブジェクトの`bautyp`変数に予めwaytypeが設定されていて，それに応じて呼ばれる関数が変化する．今回は道路建設ツールの改造なので`build_road()`が呼ばれる．どうやらこの関数が道路建設の本体のようである．（ちなみに，`bautyp`はコード\ref{do_work}の4行目`calc_route`で設定されている．気になる人は`calc_route()`も読んでほしい．）
+`way_builder_t`オブジェクトの`bautyp`変数に予めwaytypeが設定されていて，それに応じて呼ばれる関数が変化する．今回は道路建設ツールの改造なので`build_road()`が呼ばれる．どうやらこの関数が道路建設の本体のようである．（ちなみに，`bautyp`は`tool_build_way_t::do_work()`の4行目`calc_route`で設定されている．気になる人は`calc_route()`も読んでほしい．）
 
-`way_builder_t::build_road()`を読んでみよう．同じくbauer/weg\_bauer.ccに記述されている．80行程度のコードであり紙面に貼ることはしないので，お手元のコードを眺めながら読み進めてほしい．冒頭で市道・undoまわりの処理をした後，予め計算した建設ルート1マスずつに対してfor文で処理を回していく．タイルが高架タイルorトンネルタイルなら処理をスキップする．既存道路をアップグレードするのか新規建設するのかで場合分けをし，それぞれについて道路オブジェクトのdescriptorを設定したりownerを設定したりしている．最後に再描画処理を呼ぶ．
+`way_builder_t::build_road()`を読んでみよう．同じくbauer/weg\_bauer.ccに記述されている．80行程度のコードでありここに貼ることはしないので，お手元のコードを眺めながら読み進めてほしい．冒頭で市道・undoまわりの処理をした後，予め計算した建設ルート1マスずつに対してfor文で処理を回していく．タイルが高架タイルorトンネルタイルなら処理をスキップする．既存道路をアップグレードするのか新規建設するのかで場合分けをし，それぞれについて道路オブジェクトのdescriptorを設定したりownerを設定したりしている．最後に再描画処理を呼ぶ．
 
 simtool.hの探索から始まって，ようやく道路建設処理の全体が見えた．ここまでの流れを簡単に整理しておこう．`tool_build_way_t`が道路建設ツールであり，その`do_work()`関数が道路建設を行う．`do_work()`は`way_builder_t`に建設処理を丸投げしており，`build()`を経由して`build_road()`が呼ばれる．`build_road()`は予め設定された建設ルートにそって1マスずつ道路オブジェクトを配置し，道路オブジェクトに対して設定をしていく．
 
-処理の全体がわかった今，ユーザーがウィンドウ経由で設定した`street_flags`（`strasse_t`で定義したのをおぼえているだろうか）を道路オブジェクトに反映させたい．`tool_build_way_t`に`street_flags`変数を設けた上で（あとでこれをGUIで編集できるようにする），改めて自分で手を動かしてコード改変にチャレンジしてみよう．\\
-\dotfill
+処理の全体がわかった今，ユーザーがウィンドウ経由で設定した`street_flags`（`strasse_t`で定義したのをおぼえているだろうか）を道路オブジェクトに反映させたい．`tool_build_way_t`に`street_flags`変数を設けた上で（あとでこれをGUIで編集できるようにする），改めて自分で手を動かしてコード改変にチャレンジしてみよう．
 
-まずは，way\_builderから手を付けよう．`build()`や`build_road()`はそれ自体は引数を取らず，予めオブジェクトに設定しておいた値を読んで処理する方式である．そこで，まずは`way_builder_t`クラスに変数`street_flag`を設定する．bauer/wegbauer.hに以下のように追記することで，`street_flag`を定義し，setter関数を設ける．getter関数を定義していないのは，`tool_build_way_t`が`way_builder_t`に建設作業を投げて実際に建設を行う際に`way_builder_t`の`street_flag`を読み出す必要が無いからである．
+-----
+
+まずは，way\_builderから手を付けよう．`build()`や`build_road()`はそれ自体は引数を取らず，予めオブジェクトに設定しておいた値を読んで処理する方式である．そこで，まずは`way_builder_t`クラスに変数`street_flag`を設定する．bauer/wegbauer.hに下のコードのように追記することで，`street_flag`を定義し，setter関数を設ける．getter関数を定義していないのは，`tool_build_way_t`が`way_builder_t`に建設作業を投げて実際に建設を行う際に`way_builder_t`の`street_flag`を読み出す必要が無いからである．
 ```c++
 class way_builder_t
 {
@@ -220,9 +226,9 @@ void way_builder_t::build_road() {
 }
 ```
 
-コード\ref{str_flag1}ではまず，16行目でトンネルや橋の場合について，26行目で高架の場合についても`street_flag`をアップデートするようにした．この都合でif文の構造が変わっていることに注意されたい．道路置き換えの場合は39行目，新規建設の場合は49行目でそれぞれ`street_flag`を設定している．編集したのはこの4点で，それ以外はもとのコードと同じである．
+上のコードでは，16行目でトンネルや橋の場合について，26行目で高架の場合についても`street_flag`をアップデートするようにした．この都合でif文の構造が変わっていることに注意されたい．道路置き換えの場合は39行目，新規建設の場合は49行目でそれぞれ`street_flag`を設定している．編集したのはこの4点で，それ以外はもとのコードと同じである．
 
-あとは，`tool_build_way_t`が`way_builder_t`に道路建設をさせるときに`street_flag`を`way_builder_t`オブジェクトに設定すればよい．`tool_build_way_t`に`street_flag`変数を設けた上で（コード\ref{flag_on_simtool_h}），`tool_build_way_t::do_work()`をコード\ref{do_work_mod}のように変更すればよいであろう．コード\ref{do_work_mod}では5行目で`street_flag`の設定を行っている．
+あとは，`tool_build_way_t`が`way_builder_t`に道路建設をさせるときに`street_flag`を`way_builder_t`オブジェクトに設定すればよい．
 
 ```c++
 class tool_build_way_t : public two_click_tool_t {
@@ -234,6 +240,8 @@ pubic:
   uint8 get_street_flag() const { return street_flag; }
 };
 ```
+
+`tool_build_way_t`に`street_flag`変数を設けた（上のコード）上で，`tool_build_way_t::do_work()`を下のコードのように変更すればよいであろう．5行目で`street_flag`の設定を行っている．
 
 ```c++
 const char *tool_build_way_t::do_work( player_t *player, const koord3d &start, const koord3d &end )
@@ -251,14 +259,14 @@ const char *tool_build_way_t::do_work( player_t *player, const koord3d &start, c
 }
 ```
 
-### street\_flagをGUIで設定する}
-道路オブジェクトに市道化防止フラグは設けた．道路建設ツールが道路オブジェクトにフラグを正しく設定できるようにもした．あとは，ユーザが市道化防止フラグをGUIで設定できるようにすればよい．我々が実現したいのは図\ref{OTRP_road_config}のようなウィンドウである．ctrlキーを押せばウィンドウがポップアップしてきて，ユーザーがその中のボタンを押せばそれが`tool_build_way_t`の`street_flag`変数に反映されればよい．そうすれば，建設時に`tool_build_way_t::do_work()`が`street_flag`を`way_builder_t`に適切に渡してくれる．
+### street\_flagをGUIで設定する
+道路オブジェクトに市道化防止フラグは設けた．道路建設ツールが道路オブジェクトにフラグを正しく設定できるようにもした．あとは，ユーザが市道化防止フラグをGUIで設定できるようにすればよい．我々が実現したいのはページ冒頭の図のようなウィンドウである．ctrlキーを押せばウィンドウがポップアップしてきて，ユーザーがその中のボタンを押せばそれが`tool_build_way_t`の`street_flag`変数に反映されればよい．そうすれば，建設時に`tool_build_way_t::do_work()`が`street_flag`を`way_builder_t`に適切に渡してくれる．
 
-それでは，ctrlキーを押しながら道路建設ツールを呼んだときウィンドウをポップアップして市道化防止オプションボタンを表示するにはどうすればいいのだろうか？どうすればいいのかよくわからないときは，{\bf 似たようなことをやっている事例を探してきて，そこのコードをコピーする}のがスムーズな方法である．特に，GUIまわりのコードは内容を詳細に理解しようとするよりもとりあえず動いている既存のコードをコピペして使ってしまうほうが開発がスムーズに進行する．では，「ctrlキーを押しながらツールを呼ぶとウィンドウが出てきてオプションボタンを押せる」ことと似たようなことをやっているのは何だろう？
+それでは，ctrlキーを押しながら道路建設ツールを呼んだときウィンドウをポップアップして市道化防止オプションボタンを表示するにはどうすればいいのだろうか？どうすればいいのかよくわからないときは， **似たようなことをやっている事例を探してきて，そこのコードをコピーする** のがスムーズな方法である．特に，GUIまわりのコードは内容を詳細に理解しようとするよりもとりあえず動いている既存のコードをコピペして使ってしまうほうが開発がスムーズに進行する．では，「ctrlキーを押しながらツールを呼ぶとウィンドウが出てきてオプションボタンを押せる」ことと似たようなことをやっているのは何だろう？
 
-<img src="images/市道化防止/5.png" title="信号・標識の間隔設定ウィンドウ">
+<img src="images/市道化防止/5.png" title="信号・標識の間隔設定ウィンドウ" style="zoom:0.5;">
 
-それは，図\ref{railway_sign_img}のような信号・標識の間隔設定ウィンドウである．したがって，信号・標識がどのようにしてこのような機能を実現しているのかを理解すればよい．まずは，simtool.hから信号設置ツールのクラスを見つけてみよう．signal, signといった関連ワードで検索をかけてみると`tool_build_roadsign_t`というクラスが見つかる．これが信号・標識を設置するツールである．ヘッダファイルで`tool_build_roadsign_t`を眺めてもあまりかわりばえしないので，実装ファイルを覗く必要がある．とりあえず，初期化関数っぽい`tool_build_roadsign_t::init()`をのぞいてみるとしよう．コード\ref{roadsign_init}がそれである．
+それは，上図のような信号・標識の間隔設定ウィンドウである．したがって，信号・標識がどのようにしてこのような機能を実現しているのかを理解すればよい．まずは，simtool.hから信号設置ツールのクラスを見つけてみよう．signal, signといった関連ワードで検索をかけてみると`tool_build_roadsign_t`というクラスが見つかる．これが信号・標識を設置するツールである．ヘッダファイルで`tool_build_roadsign_t`を眺めてもあまりかわりばえしないので，実装ファイルを覗く必要がある．とりあえず，初期化関数っぽい`tool_build_roadsign_t::init()`をのぞいてみるとしよう．下のコードがそれである．
 
 ```c++
 bool tool_build_roadsign_t::init( player_t *player)
@@ -273,28 +281,27 @@ bool tool_build_roadsign_t::init( player_t *player)
 	return two_click_tool_t::init(player)  &&  (desc!=NULL);
 }
 ```
-7〜9行目に注目してほしい．ctrlキーが押されていたらウィンドウを作れと書いてある．そのウィンドウは`signal_spacing_frame_t`で定義されている．ctrlキーを押しながらツールをクリックしたらウィンドウが出てくるようにするには，ウィンドウクラスを定義した上でコード\ref{roadsign_init}の7〜9行目のようなコードを書けばよいことがわかった．
+
+7〜9行目に注目してほしい．ctrlキーが押されていたらウィンドウを作れと書いてある．そのウィンドウは`signal_spacing_frame_t`で定義されている．ctrlキーを押しながらツールをクリックしたらウィンドウが出てくるようにするには，ウィンドウクラスを定義した上で，上のコードの7〜9行目のようなコードを書けばよいことがわかった．
 
 では，`signal_spacing_frame_t`を調査しよう．このクラスはgui/signal\_spacing.hに書かれている．まずは定石どおりにヘッダファイルを見てほしい．private修飾子の中には信号間隔や設置オプションといったこのウィンドウで編集するパラメータ，player，呼び出し元ツール，numberinputやlabel，buttonといったguiコンポーネントの宣言が並ぶ．GUI系クラスのヘッダファイルで用意すべき変数は大きく分けて「制御するパラメータ」，「player・呼び出し元ツールといった決まった変数」，そして「ウィンドウで使うguiコンポーネント」の3つである．public修飾子の中にはコンストラクタ，`action_triggered()`，ヘルプファイル名を返す関数が並ぶ．
 
-それでは，gui/signal\_spacing.ccを調査しよう．お手元で当該ファイルを開きながら以下を読み進めてほしい．ここできちんと記述する必要がある関数はコンストラクタと`action_triggered()`の2つである．まずは`action_triggered()`の方から見てみよう．この関数は登録したguiコンポーネントに何らかのイベントが発生したとき呼ばれる関数である．`action_triggered()`には引数としてイベントを引き起こしたguiコンポーネント`komp`と，そのイベントの値が渡されてくる．今回は，値の方は使っていないので`komp`に注目すればよい．ウィンドウ内のguiコンポーネントと`komp`と比較し，一致すればそのコンポーネントに対して処理を行う．例えば，`komp == &remove_button`であれば，removeの状態を反転させ，ボタンに反映させている．最後に呼び出し元ツールに変更した値を代入している（`return true;`の1行前）．Simutransで提供されるbuttonオブジェクトはボタンを押しても勝手に状態が反転するわけではないことに注意されたい．
+それでは，gui/signal\_spacing.ccを調査しよう．お手元で当該ファイルを開きながら以下を読み進めてほしい．ここできちんと記述する必要がある関数はコンストラクタと`action_triggered()`の2つである．まずは`action_triggered()`の方から見てみよう．この関数は登録したguiコンポーネントに何らかのイベントが発生したとき呼ばれる関数である．`action_triggered()`には引数としてイベントを引き起こしたguiコンポーネント`comp`と，そのイベントの値が渡されてくる．今回は，値の方は使っていないので`comp`に注目すればよい．ウィンドウ内のguiコンポーネントと`comp`と比較し，一致すればそのコンポーネントに対して処理を行う．例えば，`comp == &remove_button`であれば，removeの状態を反転させ，ボタンに反映させている．最後に呼び出し元ツールに変更した値を代入している（`return true;`の1行前）．Simutransで提供されるbuttonオブジェクトはボタンを押しても勝手に状態が反転するわけではないことに注意されたい．
 
-つづいて，コンストラクタについて調査しよう．渡されたplayer, 呼び出し元ツールなどを整理した後，各guiコンポーネントの配置処理を行っていることがわかるだろう．例えば，押しボタンの配置処理ならコード\ref{button_process}が配置処理のひとかたまりとなる．また，コンポーネント配置座標として`scr_coord cursor`がsignal\_spacing.ccの29行目で定義されている．
+つづいて，コンストラクタについて調査しよう．渡されたplayer, 呼び出し元ツールなどを整理した後，各guiコンポーネントの配置処理を行っていることがわかるだろう．例えば，押しボタンの配置処理なら下のコードが配置処理のひとかたまりとなる．
 
 ```c++
-remove_button.init( button_t::square_state, "remove interm. signals", cursor );
-remove_button.set_width( L_DIALOG_WIDTH - D_MARGINS_X );
+remove_button.init( button_t::square_state, "remove interm. signals");
 remove_button.add_listener(this);
 remove_button.pressed = remove;
-add_component( &remove_button );
-cursor.y += remove_button.get_size().h + D_V_SPACE;
+add_component( &remove_button, 3);
 ```
 
-コード\ref{button_process}では1行目で`remove_button`を初期化（引数としてボタンの種類，ボタン横のラベル文字列，位置を取る）している．2行目で幅を決めて，3行目listenerに登録（これによって`action_triggered()`が呼ばれるようになる）する．4行目で押されたか状態を設定し，5行目でウィンドウにguiコンポーネントを登録する．最後の6行目で配置座標のy座標をズラしている．これでボタンの配置が完了する．
+このコードでは1行目で`remove_button`を初期化（引数としてボタンの種類と，ボタン横のラベル文字列を取る）している．2行目でlistenerに登録（これによって`action_triggered()`が呼ばれるようになる）する．3行目で押されたか状態を設定し，4行目でウィンドウにguiコンポーネントを登録する．
 
 以上で，信号・標識設置ツールがどのようにしてGUIによる値設定を可能にしているのかが理解できた．toolの`init()`でctrlキーが押されていたらウィンドウを生成し，ウィンドウ内ではguiコンポーネントを並べ，適切に初期化し，ボタンが押されたらそれに対して反応してユーザーが設定した値をtoolに格納する．このやりかたをそっくりそのまま`tool_build_way_t`でもやればいいのである．
 
-なお，設置ツール初期化時に必要に応じてウィンドウを生成するだけでは，設置ツールが使われなくなったときに自動でウィンドウが消えてくれない．`tool_build_roadsign_t`には`exit()`という関数が実装されており（コード\ref{exit_function}），そこでウィンドウの破壊処理が行われている．`init()`や`exit()`の呼び出しはこの手のツール共通の親クラスである`two_click_tool_t`で書かれているので，我々は`exit()`の中にウィンドウ破壊処理を書くだけでよい．忘れずに`tool_build_way_t`にも移植しよう．
+なお，設置ツール初期化時に必要に応じてウィンドウを生成するだけでは，設置ツールが使われなくなったときに自動でウィンドウが消えてくれない．`tool_build_roadsign_t`には`exit()`という関数が実装されており（下のコード），そこでウィンドウの破壊処理が行われている．`init()`や`exit()`の呼び出しはこの手のツール共通の親クラスである`two_click_tool_t`で書かれているので，我々は`exit()`の中にウィンドウ破壊処理を書くだけでよい．忘れずに`tool_build_way_t`にも移植しよう．
 
 ```c++
 bool tool_build_roadsign_t::exit( player_t *player )
@@ -304,8 +311,9 @@ bool tool_build_roadsign_t::exit( player_t *player )
 }
 ```
 
-例によって以下の解説に入る前に，まずは自力でGUIダイアログの実装にチャレンジしてほしい．\\
-\dotfill
+例によって以下の解説に入る前に，まずは自力でGUIダイアログの実装にチャレンジしてほしい．
+
+-----
 
 まずは，GUI画面を記述するファイルを作ろう．先ほどの信号・標識設置の場合ではsignal\_spacing.h・.ccに相当する．ここではファイル名はroad\_config.h・.ccとする．ヘッダファイル（gui/road\_config.h）はgui/signal\_spacing.hを参考にすると以下のようになる．今回置くguiコンポーネントは市道化防止ボタンただ一つだけである．
 
@@ -369,9 +377,9 @@ road_config_frame_t::road_config_frame_t(player_t *player_, tool_build_way_t* to
 	set_windowsize( scr_size( L_DIALOG_WIDTH, D_TITLEBAR_HEIGHT + cursor.y + D_MARGIN_BOTTOM ) );
 }
 
-bool road_config_frame_t::action_triggered( gui_action_creator_t *komp, value_t)
+bool road_config_frame_t::action_triggered( gui_action_creator_t *comp, value_t)
 {
-	if( komp == &button ) {
+	if( comp == &button ) {
     button.pressed = !button.pressed;
     if(  button.pressed  ) {
       // AVOID_CITYROADをONにする
@@ -388,12 +396,12 @@ bool road_config_frame_t::action_triggered( gui_action_creator_t *komp, value_t)
 
 コード\ref{road_conf_cc}では`strasse_t`のenumを使うため5行目でstrasse.hをincludeしている．9行目で変数の初期化を行い，20〜25行目でbuttonの配置をしている．30行目から`action_triggered`の記述が始まり，ボタンの状態を反転した上で`street_flag`のビット演算をしている．41行目でそれを呼び出し元ツールに戻している．
 
-`road_config_frame_t`クラスが書き上がったので，`tool_build_way_t`から呼び出してあげよう．ウィンドウを閉じるために必要な`exit()`関数は`tool_build_way_t`に実装されていない（オーバーライドされていない）ので，信号・標識と同じようにpublic属性でヘッダファイル（simtool.h）で宣言する．（コード\ref{exit_func_declare}）
+`road_config_frame_t`クラスが書き上がったので，`tool_build_way_t`から呼び出してあげよう．ウィンドウを閉じるために必要な`exit()`関数は`tool_build_way_t`に実装されていない（オーバーライドされていない）ので，信号・標識と同じようにpublic属性でヘッダファイル（simtool.h）で宣言する．（下のコード）
 ```c++
 bool exit(player_t*) OVERRIDE;
 ```
 
-simcity.ccはコード\ref{simcity_mod}のように改変すればよい．road\_config.hを新しく作り，それを使うので1行目でincludeしている．`tool_build_way_t::init()`の中にウィンドウ作成処理を記した．`exit()`関数も新しく`tool_build_way_t`に実装（15行目以降）した．
+simcity.ccは下のコードのように改変すればよい．road\_config.hを新しく作り，それを使うので1行目でincludeしている．`tool_build_way_t::init()`の中にウィンドウ作成処理を記した．`exit()`関数も新しく`tool_build_way_t`に実装（15行目以降）した．
 ```c++
 #include "gui/road_config.h"
 
@@ -420,7 +428,7 @@ bool tool_build_way_t::exit( player_t *player )
 
 ところが，嬉々としてコンパイルを実行すると残念ながら次のエラーに出くわすであろう．
 
-```c++
+```
 ===> LD  /Users/XXXX/sim
 Undefined symbols for architecture x86_64:
   "road_config_frame_t::road_config_frame_t(player_t*, tool_build_way_t*, bool)", referenced from:
@@ -430,24 +438,25 @@ clang: error: linker command failed with exit code 1 (use -v to see invocation)
 make: *** [/Users/XXXX/sim] Error 1
 ```
 
-symbols not found，つまり，コンパイラが「road\_config\_frame\_tとか知りません」と怒っている．これはさきほど作成したroad\_config.ccがMakefileに登録されておらず，このファイルに対するコンパイルが行われていないからである．よって，road\_config.ccをコンパイルするようMakefileに追記しなければならない．
+`symbols not found`，つまり，コンパイラが「road\_config\_frame\_tとか知りません」と怒っている．これはさきほど作成したroad\_config.ccがMakefileに登録されておらず，このファイルに対するコンパイルが行われていないからである．よって，road\_config.ccをコンパイルするようMakefileに追記しなければならない．
 
-simutransソースコードディレクトリのトップ層にMakefileというファイルがあるので，それを開くとおよそ200〜500行目にわたってコード\ref{コンパイル対象ファイルの追加}
-```c++
+simutransソースコードディレクトリのトップ層にMakefileというファイルがあるので，それを開くとおよそ200〜500行目にわたって
+
+```makefile
 SOURCES += gui/convoi_filter_frame.cc
 SOURCES += gui/convoi_frame.cc
 SOURCES += gui/convoi_info_t.cc
 SOURCES += gui/convoy_item.cc
 ```
 のように，ccファイルたちがコンパイル対象として追加されている．よって，road\_config.ccをコンパイル対象として追加するためにはMakefileの適当な場所に
-```c++
+```makefile
 SOURCES += gui/road_config.cc
 ```
-と追記すればよい．これでコンパイルが通ったはずだ．起動してctrlキーを押しながら道路建設アイコンをクリックすれば，図\ref{simple_conf_window}のようなウィンドウで市道化をコントロールできるはずである．
+と追記すればよい．これでコンパイルが通ったはずだ．起動してctrlキーを押しながら道路建設アイコンをクリックすれば，下図のようなウィンドウで市道化をコントロールできるはずである．
 
-<img src="images/市道化防止/7.png" title="完成した市道化可否コントロールウィンドウ">
+<img src="images/市道化防止/7.png" title="完成した市道化可否コントロールウィンドウ" style="zoom:0.5;">
 
-### ネットワークゲーム対応}
+### ネットワークゲーム対応
 先の節でこの改造は一応の完成を見た，ということになった．しかし，実はこのままの状態で世の中にリリースするとユーザーから不具合報告が来ることになる．現時点で残っている不具合は以下の２つである．
 
 * 市道化防止が原理的に不要なはずの高架で市道化可否選択ダイアログが表示される．
@@ -455,26 +464,27 @@ SOURCES += gui/road_config.cc
 
 1つめの問題はさほど深刻ではないので放置するとして，ネットワークゲームで市道化防止が機能しないのは大きな問題である．しかし，どうしてこのようなことになってしまったのだろうか．バグを調査して，修正しよう．今回の不具合はネットワークゲームでの不具合である．ネットワークゲームのデバッグをするにはローカルでサーバとクライアントを建てればよい．サーバーは`-server`オプションをつけてsimutransを起動し，クライアントは接続先に`127.0.0.1`（ローカル・ループバック・アドレス）を指定すればよい．
 
-そもそも`tool_build_way_t::do_work()`で`street_flag`は正しく設定されているのだろうか．それを調べるところから始めよう．`tool_build_way_t::do_work()`の5行目（`street_flag`を設定している行．コード\ref{tool_break_point}を参照のこと）にブレークポイントを仕掛ける．（例：その行がsimtool.ccの2438行目であれば，`b simtool.cc:2438` とgdbに入力）
+そもそも`tool_build_way_t::do_work()`で`street_flag`は正しく設定されているのだろうか．それを調べるところから始めよう．`tool_build_way_t::do_work()`の5行目（`street_flag`を設定している行．下のコードを参照のこと）にブレークポイントを仕掛ける．（例：その行がsimtool.ccの2438行目であれば，`b simtool.cc:2438` とgdbに入力）
+
 ```c++
 const char *tool_build_way_t::do_work( player_t *player, const koord3d &start, const koord3d &end )
 {
-	way_builder_t bauigel(player);
-	calc_route( bauigel, start, end );
-	bauigel.set_street_flag(street_flag);
+  way_builder_t bauigel(player);
+  calc_route( bauigel, start, end );
+  bauigel.set_street_flag(street_flag); //ここにブレークポイントを設定する
   if(  bauigel.get_route().get_count()>1  ) {
-		welt->mute_sound(true);
-		bauigel.build();
+    welt->mute_sound(true);
+    bauigel.build();
 ```
 
-ブレークポイントを設定したら「`r -server`」でsimutransを起動．市道化防止を有効にして道路を建設してみよう．道路を建設するとブレークポイントに当たってsimutransがフリーズし，gdbが入力を受け付けるようになる．ここで`street_flag`の値を出力してみよう．コード\ref{市道化防止を有効にしたのに}のようにデバッガで`street_flag`を出力させると，市道化防止を有効にしたはずなのになんと`street_flag`は0だと表示された．
+ブレークポイントを設定したら「`r -server`」でsimutransを起動．市道化防止を有効にして道路を建設してみよう．道路を建設するとブレークポイントに当たってsimutransがフリーズし，gdbが入力を受け付けるようになる．ここで`street_flag`の値を出力してみよう．デバッガで`street_flag`を出力させると，市道化防止を有効にしたはずなのになんと`street_flag`は0だと表示された．
 
-```c++
+```
 (gdb) p street_flag
 (uint8) $0 = '\0'
 ```
 
-なるほど．では，ctrlキーを押して出てくるあのウィンドウから`street_flag`がきちんと設定されていなかったのではないか．もしくは外部から`street_flag`が0に書き換えられたのではないか．そこで，`tool_build_way_t::set_street_flag()`にコード\ref{observe_street_flag}の3行目のようにprintf文を仕込む．これで，外部から`street_flag`が操作されれば，それはprintf文によって出力されることになる．
+なるほど．では，ctrlキーを押して出てくるあのウィンドウから`street_flag`がきちんと設定されていなかったのではないか．もしくは外部から`street_flag`が0に書き換えられたのではないか．そこで，`tool_build_way_t::set_street_flag()`に下のコードの3行目のようにprintf文を仕込む．これで，外部から`street_flag`が操作されれば，それはprintf文によって出力されることになる．
 ```c++
 class tool_build_way_t : public two_click_tool_t {
   void set_street_flag(uint8 a) {
@@ -483,14 +493,12 @@ class tool_build_way_t : public two_click_tool_t {
 	}
 };
 ```
-ところが，これをコンパイルしネットワークモードで実行し，ウィンドウから市道化防止フラグをONにして道路を建設してもコンソール画面にはコード\ref{不審な操作は見られない}のように出力される．すなはち，`tool_build_way_t`の`street_flag`はただ一度「1」に変更されただけという結果である．
-```c++
-flag:1
-```
+ところが，これをコンパイルしネットワークモードで実行し，ウィンドウから市道化防止フラグをONにして道路を建設してもコンソール画面には`flag:1`と出力される．すなはち，`tool_build_way_t`の`street_flag`はただ一度「1」に変更されただけという結果である．
+
 
 `tool_build_way_t`の`street_flag`はたしかに設定ウィンドウによって正しく1になった．しかし，`do_work()`の段階では0になってしまう．外部からの値操作がないとすると，`tool_build_way_t`で値が書き換えられたのだろうか？そうアタリをつけて原因箇所を探ってみても，残念ながら手がかりは得られない．ここで発想の転換が必要である．市道化防止設定ウィンドウを扱っている`tool_build_way_t`オブジェクトと，`do_work()`を実行している`tool_build_way_t`オブジェクトは，実は別モノなのではないかと．
 
-そこで，それぞれのオブジェクトのメモリ上のアドレスを見てあげることにしよう．これもprintfで見てあげればよい．`set_street_flag()`において先ほど設定値をprintf出力したが，オブジェクトアドレスも追加で出力する．（コード\ref{オブジェクトのアドレス表示}）
+そこで，それぞれのオブジェクトのメモリ上のアドレスを見てあげることにしよう．これもprintfで見てあげればよい．`set_street_flag()`において先ほど設定値をprintf出力したが，オブジェクトアドレスも下のコードのように追加で出力する．
 
 ```c++
 class tool_build_way_t : public two_click_tool_t {
@@ -512,7 +520,8 @@ const char *tool_build_way_t::do_work( player_t *player, const koord3d &start, c
 ```
 
 これをコンパイルし，ネットワークモードで起動して市道化防止を設定し道路建設を行うと以下の結果を得る．
-```c++
+
+```
 flag:1, addr:11225504
 do_work: addr:719768224
 ```
@@ -523,14 +532,17 @@ do_work: addr:719768224
 
 これではツールが何かしらのパラメータを使って作業を行おうとしても，それを実行するオブジェクトに情報が伝わらないので困ってしまう．そこで，simutransでは`rdwr_custom_data()`という関数が用意されている．これは親クラス`tool_t`が提供している関数であり，セーブデータ読み書きの`rdwr()`のようにこの中でネットワーク越しにパラメータを読み書きする関数である．`rdwr_custom_data()`は`tool_build_way_t`ではオーバーライドされていないが，`tool_build_bridge_t`ではオーバーライドされているのでこれを真似て実装しよう．
 
-ヘッダファイルで`rdwr_custom_data()`を宣言し，実装ファイルで実装してあげればよい．それぞれコード\ref{rdwr_custom_data_h}と\ref{rdwr_custom_data_cc}のように追記する．これでめでたくネットワークゲームでも機能するようになった．
+ヘッダファイルで`rdwr_custom_data()`を宣言し，実装ファイルで実装してあげればよい．それぞれ下のように追記する．これでめでたくネットワークゲームでも機能するようになった．
+
 ```c++
+// simtool.h
 class tool_build_way_t : public two_click_tool_t {
   void rdwr_custom_data(memory_rw_t*) OVERRIDE;
 };
 ```
 
 ```c++
+// simtool.cc
 void tool_build_way_t::rdwr_custom_data(memory_rw_t *packet)
 {
 	two_click_tool_t::rdwr_custom_data(packet);
