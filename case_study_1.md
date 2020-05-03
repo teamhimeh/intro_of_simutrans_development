@@ -191,7 +191,7 @@ if(  file->is_version_atleast(121, 1)  ) {
 void settings_economy_stats_t::read(settings_t* const sets)
 {
   // （この間たくさんの初期化コード）
-  READ_NUM_VALUE( sets->max_cityroad_speed() );
+  READ_NUM_VALUE( sets->max_cityroad_speed );
 }
 
 void settings_costs_stats_t::init(settings_t const* const sets) {
