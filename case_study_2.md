@@ -398,7 +398,7 @@ bool road_config_frame_t::action_triggered( gui_action_creator_t *comp, value_t)
 bool exit(player_t*) OVERRIDE;
 ```
 
-simcity.ccは下のコードのように改変すればよい．road\_config.hを新しく作り，それを使うので1行目でincludeしている．`tool_build_way_t::init()`の中にウィンドウ作成処理を記した．`exit()`関数も新しく`tool_build_way_t`に実装（15行目以降）した．
+simtool.ccは下のコードのように改変すればよい．road\_config.hを新しく作り，それを使うので1行目でincludeしている．`tool_build_way_t::init()`の中にウィンドウ作成処理を記した．`exit()`関数も新しく`tool_build_way_t`に実装（15行目以降）した．
 ```c++
 #include "gui/road_config.h"
 
