@@ -46,7 +46,7 @@ yes | pacman -Su
 
 つづいて，以下のコマンドをMSYS2で実行し，諸々のツールをインストールする．
 ```sh
-pacman -S git make mingw-w64-i686-toolchain mingw-w64-i686-zlib mingw-w64-i686-bzip2 mingw-w64-i686-libpng mingw-w64-i686-zstd
+pacman -S git make mingw-w64-i686-toolchain mingw-w64-i686-zlib mingw-w64-i686-bzip2 mingw-w64-i686-libpng mingw-w64-i686-zstd mingw-w64-i686-freetype
 ```
 
 インストールするパッケージの選択を求められるので，何も入力せずEnterを押す．つまり，全てのパッケージを導入する．
@@ -78,7 +78,7 @@ WITH_REVISION = 8550
 WIN32_CONSOLE = 1
 MULTI_THREAD = 1
 USE_FREETYPE = 1
-USE_UPNP = 1
+USE_UPNP = 0
 USE_ZSTD = 1
 MAKEOBJ_PROGDIR = $(shell pwd)
 NETTOOL_PROGDIR = $(shell pwd)
@@ -161,7 +161,7 @@ OPTIMISE = 1
 WITH_REVISION = 8550
 MULTI_THREAD = 1
 USE_FREETYPE = 1
-USE_UPNP = 1
+USE_UPNP = 0
 USE_ZSTD = 1
 MAKEOBJ_PROGDIR = $(shell pwd)
 NETTOOL_PROGDIR = $(shell pwd)
@@ -220,7 +220,7 @@ WITH_REVISION = 8550
 MULTI_THREAD = 1
 AV_FOUNDATION = 1
 USE_FREETYPE = 1
-USE_UPNP = 1
+USE_UPNP = 0
 USE_ZSTD = 1
 MAKEOBJ_PROGDIR = $(shell pwd)
 NETTOOL_PROGDIR = $(shell pwd)
