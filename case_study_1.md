@@ -199,9 +199,7 @@ void settings_costs_stats_t::init(settings_t const* const sets) {
   // 引数は 表示名, 変数, min, max, 補完, wrap (通常false)
   INIT_NUM("max_cityroad_speed", sets->get_max_cityroad_speed(), 0, 65535, gui_numberinput_t::AUTOLINEAR, false );
 
-  clear_dirty();
-  height = ypos;
-  set_size( settings_stats_t::get_size() );
+  INIT_END
 }
 ```
 `settings_t`において`max_cityroad_speed`はprivate宣言したにもかかわらず，コードの10行目では`max_cityroad_speed`が直接アクセスされている．これは，このクラスがfriendクラス扱いになっているからである．friendクラスについては[『ロベールのC++教室』第2部第43章](url{http://www7b.biglobe.ne.jp/~robe/cpphtml/html02/cpp02043.html)を読むとよい．
