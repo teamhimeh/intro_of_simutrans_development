@@ -345,9 +345,7 @@ public:
 #endif
 ```
 
-**ここから下は現行バージョンで動作しないので，書き直し中です**
-
-つづいて，gui/signal\_spacing.ccを参考にしてgui/road\_config.ccを書く．実装する関数はコンストラクタと`action_triggered()`の2つである．
+つづいて，gui/signal_spacing.ccを参考にしてgui/road_config.ccを書く．実装する関数はコンストラクタと`action_triggered()`の2つである．
 
 ```c++
 #include "components/gui_button.h"
@@ -356,27 +354,23 @@ public:
 #include "../simtool.h"
 #include "../boden/wege/strasse.h"
 
-#define L_DIALOG_WIDTH (200)
 
 uint8 road_config_frame_t::street_flag = 0;
 
 road_config_frame_t::road_config_frame_t(player_t *player_, tool_build_way_t* tool_) :
 	gui_frame_t( translator::translate("configure road") )
 {
-	player = player_;
-	tool = tool_;
-	street_flag = tool->get_street_flag();
-
-	scr_coord cursor(D_MARGIN_LEFT, D_MARGIN_TOP);
-
-	button.init( button_t::square_state, "avoid becoming cityroad", cursor );
-	button.set_width( L_DIALOG_WIDTH - D_MARGINS_X );
-	button.add_listener(this);
-	button.pressed = weg->set_street_flag(street_flag);;
-	add_component( &button );
-	cursor.y += button.get_size().h + D_V_SPACE;
-
-	set_windowsize( scr_size( L_DIALOG_WIDTH, D_TITLEBAR_HEIGHT + cursor.y + D_MARGIN_BOTTOM ) );
+  player = player_;
+  tool = tool_;
+  street_flag = tool->get_street_flag();
+  
+  set_table_layout(1,0);
+  button.init( button_t::square_state, "avoid becoming cityroad");
+  button.add_listener(this);
+  button.pressed = street_flag & strasse_t::AVOID_CITYROAD;
+  add_component( &button );
+  reset_min_windowsize();
+  set_windowsize(get_min_windowsize());
 }
 
 bool road_config_frame_t::action_triggered( gui_action_creator_t *comp, value_t)
@@ -396,9 +390,8 @@ bool road_config_frame_t::action_triggered( gui_action_creator_t *comp, value_t)
 }
 ```
 
-コード\ref{road_conf_cc}では`strasse_t`のenumを使うため5行目でstrasse.hをincludeしている．9行目で変数の初期化を行い，20〜25行目でbuttonの配置をしている．30行目から`action_triggered`の記述が始まり，ボタンの状態を反転した上で`street_flag`のビット演算をしている．41行目でそれを呼び出し元ツールに戻している．
+上のコードでは`strasse_t`のenumを使うため5行目でstrasse.hをincludeしている．13〜15行目で変数の初期化を行い，17〜23行目でbuttonの配置をしている．26行目から`action_triggered`の記述が始まり，ボタンの状態を反転した上で`street_flag`のビット演算をしている．37行目でそれを呼び出し元ツールに戻している．
 
-**編集中区間ここまで**
 
 `road_config_frame_t`クラスが書き上がったので，`tool_build_way_t`から呼び出してあげよう．ウィンドウを閉じるために必要な`exit()`関数は`tool_build_way_t`に実装されていない（オーバーライドされていない）ので，信号・標識と同じようにpublic属性でヘッダファイル（simtool.h）で宣言する．（下のコード）
 ```c++
@@ -413,7 +406,7 @@ bool tool_build_way_t::init( player_t *player )
 {
 	two_click_tool_t::init( player );
   if (is_ctrl_pressed()  &&  can_use_gui()) {
-    create_win(new signal_spacing_frame_t(player, this), w_info, (ptrdiff_t)this);
+    create_win(new road_config_frame_t(player, this), w_info, (ptrdiff_t)this);
   }
   
   if( ok_sound == NO_SOUND ) {
@@ -428,7 +421,7 @@ bool tool_build_way_t::exit( player_t *player )
 }
 ```
 
-これでウィンドウから市道化可否をON/OFFできるようになり，我々の目的は達成された，はずである．最後に，simversion.hの`SIM_SAVE_MINOR`を忘れずに1増やしておこう．（`strasse_t`の`rdwr()`で使ったバージョン番号と合っているか確認する．詳しくは第\ref{セーブデータの読み書き}節を参照されたい．）
+これでウィンドウから市道化可否をON/OFFできるようになり，我々の目的は達成された，はずである．最後に，simversion.hの`SIM_SAVE_MINOR`を忘れずに1増やしておこう．（`strasse_t`の`rdwr()`で使ったバージョン番号と合っているか確認する．）
 
 ところが，嬉々としてコンパイルを実行すると残念ながら次のエラーに出くわすであろう．
 
