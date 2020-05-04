@@ -197,7 +197,7 @@ void way_builder_t::build_road() {
 				weg->set_street_flag(street_flag);
 			}
 			// keep faster ways or if it is the same way ... (@author prissi)
-			else if((weg->get_desc()==desc  &&  weg->get_overtaking_mode()==overtaking_mode  &&  weg->get_street_flag()==street_flag  )  ||  keep_existing_ways  ||  (keep_existing_city_roads  &&  weg->hat_gehweg())  ||  (keep_existing_faster_ways  &&  weg->get_desc()->get_topspeed()>desc->get_topspeed())  ||  (player_builder!=NULL  &&  weg->is_deletable(player_builder)!=NULL)) {
+			else if((weg->get_desc()==desc  &&  weg->get_street_flag()==street_flag  )  ||  keep_existing_ways  ||  (keep_existing_city_roads  &&  weg->hat_gehweg())  ||  (keep_existing_faster_ways  &&  weg->get_desc()->get_topspeed()>desc->get_topspeed())  ||  (player_builder!=NULL  &&  weg->is_deletable(player_builder)!=NULL)) {
 				//nothing to be done
 			}
 			else {
